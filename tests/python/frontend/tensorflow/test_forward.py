@@ -4689,11 +4689,7 @@ def test_forward_dynmaic_rnn_lstmblockcell():
 #######################################################################
 # Unique
 # ------------
-def _test_unique(
-    n,
-    dtype,
-    is_dyn
-):
+def _test_unique(n, dtype, is_dyn):
     """ One iteration of a Stridedslice """
 
     tf.reset_default_graph()
@@ -4705,8 +4701,7 @@ def _test_unique(
             in_data = tf.constant(np_data, dtype, name="in_data")
         tf.unique(in_data)
         if is_dyn:
-            compare_tf_with_tvm(np_data, "in_data:0", [
-                                "Unique:0", "Unique:1"], mode="vm")
+            compare_tf_with_tvm(np_data, "in_data:0", ["Unique:0", "Unique:1"], mode="vm")
         else:
             compare_tf_with_tvm(None, "", ["Unique:0", "Unique:1"])
 
