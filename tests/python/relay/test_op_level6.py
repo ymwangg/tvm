@@ -151,15 +151,15 @@ def test_unique():
         num_uniq = np.array([len(uniq)]).astype("int32")
         return uniq, inverse, counts, num_uniq
 
-    def verify_unique(len, dtype, is_dyn=False):
+    def verify_unique(n, dtype, is_dyn=False):
         if is_dyn:
             x = relay.var("x", relay.TensorType([relay.Any()], dtype))
         else:
-            x = relay.var("x", relay.TensorType([len], dtype))
+            x = relay.var("x", relay.TensorType([n], dtype))
         outs = relay.unique(x)
         outs = outs.astuple()
         func = relay.Function([x], outs)
-        x_data = np.random.randint(100, size=len).astype(dtype)
+        x_data = np.random.randint(100, size=n).astype(dtype)
 
         if is_dyn:
             backends = ["vm", "debug"]
