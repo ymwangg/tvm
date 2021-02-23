@@ -1484,8 +1484,6 @@ def test_unique():
 
         for target, ctx in tvm.testing.enabled_targets():
             for kind in backends:
-                if is_dyn and ctx.device_type == 2: # skip dynamic shape on GPU
-                    continue
                 mod = tvm.ir.IRModule.from_expr(func)
                 intrp = relay.create_executor(kind, mod=mod, ctx=ctx, target=target)
                 tvm_res = intrp.evaluate()(x_data)
