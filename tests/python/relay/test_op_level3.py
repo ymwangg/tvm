@@ -1496,7 +1496,9 @@ def test_unique():
                 tvm.testing.assert_allclose(tvm_res[1].asnumpy(), np_res[1], rtol=1e-5)
                 # counts
                 if return_counts:
-                    tvm.testing.assert_allclose(tvm_res[3].asnumpy()[:num_unique], np_res[2], rtol=1e-5)
+                    tvm.testing.assert_allclose(
+                        tvm_res[3].asnumpy()[:num_unique], np_res[2], rtol=1e-5
+                    )
 
     for dtype in ["int32", "int64"]:
         for i in range(8):
