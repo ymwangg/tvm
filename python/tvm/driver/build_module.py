@@ -297,6 +297,94 @@ def _build_for_device(input_mod, target, target_host):
     rt_mod_dev = codegen.build_module(mod_dev, target) if len(mod_dev.functions) != 0 else None
     return mod_host, rt_mod_dev
 
+def _build_for_device_irmodule(input_mod, target, target_host):
+    """Build the lowered functions for a device with the given compilation
+    target.
+
+    Parameters
+    ----------
+    input_mod : IRModule
+        The schedule to be built.
+
+    target : str or :any:`tvm.target.Target`
+        The target and option of the compilation.
+
+    target_host : str or :any:`tvm.target.Target`
+        The host compilation target.
+
+    Returns
+    -------
+    fhost : IRModule
+        The host IRModule.
+
+    mdev : tvm.module
+        A module that contains device code.
+    """
+    target = Target(target)
+    target_host = Target(target_host)
+    device_type = ndarray.context(target.kind.name, 0).device_type
+
+    mod_mixed = input_mod
+    mod_mixed = tvm.tir.transform.Apply(lambda f: f.with_attr("target", target))(mod_mixed)
+
+    opt_mixed = [tvm.tir.transform.VerifyMemory()]
+    if len(mod_mixed.functions) == 1:
+        opt_mixed += [tvm.tir.transform.Apply(lambda f: f.with_attr("tir.is_entry_func", True))]
+
+    if PassContext.current().config.get("tir.detect_global_barrier", False):
+        opt_mixed += [tvm.tir.transform.ThreadSync("global")]
+    opt_mixed += [
+        tvm.tir.transform.ThreadSync("shared"),
+        tvm.tir.transform.ThreadSync("warp"),
+        tvm.tir.transform.InferFragment(),
+        tvm.tir.transform.LowerThreadAllreduce(),
+        tvm.tir.transform.MakePackedAPI(),
+        tvm.tir.transform.SplitHostDevice(),
+    ]
+    mod_mixed = tvm.transform.Sequential(opt_mixed)(mod_mixed)
+
+    # device optimizations
+    opt_device = tvm.transform.Sequential(
+        [
+            tvm.tir.transform.Filter(
+                lambda f: "calling_conv" in f.attrs
+                and f.attrs["calling_conv"].value == CallingConv.DEVICE_KERNEL_LAUNCH
+            ),
+            tvm.tir.transform.LowerWarpMemory(),
+            tvm.tir.transform.Simplify(),
+            tvm.tir.transform.LowerDeviceStorageAccessInfo(),
+            tvm.tir.transform.LowerCustomDatatypes(),
+            tvm.tir.transform.LowerIntrin(),
+        ]
+    )
+    mod_dev = opt_device(mod_mixed)
+
+    # host optimizations
+    opt_host = tvm.transform.Sequential(
+        [
+            tvm.tir.transform.Filter(
+                lambda f: "calling_conv" not in f.attrs
+                or f.attrs["calling_conv"].value != CallingConv.DEVICE_KERNEL_LAUNCH
+            ),
+            tvm.tir.transform.Apply(lambda f: f.with_attr("target", target)),
+            tvm.tir.transform.LowerTVMBuiltin(),
+            tvm.tir.transform.LowerDeviceStorageAccessInfo(),
+            tvm.tir.transform.LowerCustomDatatypes(),
+            tvm.tir.transform.LowerIntrin(),
+            tvm.tir.transform.CombineContextCall(),
+        ]
+    )
+    mod_host = opt_host(mod_mixed)
+
+    if device_type == ndarray.cpu(0).device_type and target_host == target:
+        assert len(mod_dev.functions) == 0
+    if "gpu" in target.keys and len(mod_dev.functions) == 0:
+        warnings.warn(
+            "Specified target %s, but cannot find device code, did you do " "bind?" % target
+        )
+
+    rt_mod_dev = codegen.build_module(mod_dev, target) if len(mod_dev.functions) != 0 else None
+    return mod_dev
 
 def build(inputs, args=None, target=None, target_host=None, name="default_function", binds=None):
     """Build a function with arguments as signature. Code will be generated
