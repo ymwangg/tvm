@@ -576,10 +576,16 @@ class MatMul(OnnxOpConverter):
             a = flatten_to_3d(inputs[0], a_shape)
             b = flatten_to_3d(inputs[1], b_shape)
             # Transpose matrix dimensions of b.
-            # b = _op.transpose(b, [0, 2, 1])
-            # # Perform a batch matmul.
-            # output = _op.nn.batch_matmul(a, b, transb=True)
-            output = _op.nn.batch_matmul(a, b, transb=False)
+            second_shape = infer_shape(inputs[1])
+            if (not isinstance(second_shape[-1], tvm.tir.expr.Any)) and (
+                not isinstance(second_shape[-2], tvm.tir.expr.Any) and (second_shape[-1] == 3072 or second_shape[-2] == 3072)
+            ):
+                output = _op.nn.batch_matmul(a, b, transb=False)
+            else:
+                b = _op.transpose(b, [0, 2, 1])
+                # Perform a batch matmul.
+                output = _op.nn.batch_matmul(a, b, transb=True)
+
             # Determine the output batch dimension.
             if a_rank > b_rank:
                 out_batch = _op.strided_slice(a_shape, [0], [a_rank - 2])
