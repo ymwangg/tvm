@@ -137,7 +137,7 @@ def _default_batch_matmul_config(cfg, M, N, K):
     cfg["tile_y"] = SplitEntity([M // y_bn, y_bn])
 
 
-def batch_matmul_blas_common(cfg, x, y, out_shape, lib):
+def batch_matmul_blas_common(cfg, x, y, out_shape, lib, transb=True):
     """Computes batch matrix multiplication of `x` and `y` when `x` and `y` are
     data in batch, using one of BLAS libraries.
 
@@ -162,14 +162,14 @@ def batch_matmul_blas_common(cfg, x, y, out_shape, lib):
     assert len(x.shape) == 3 and len(y.shape) == 3, "only support 3-dim batch_matmul"
     XB, M, XK = get_const_tuple(x.shape)
     YB, N, YK = get_const_tuple(y.shape)
-    assert XB == YB, "batch dimension doesn't match"
-    assert XK == YK, "shapes of x and y is inconsistent"
-    if out_shape is not None:
-        assert out_shape[0] == XB, "got invalid output shape"
-        assert out_shape[1] == M, "got invalid output shape"
-        assert out_shape[2] == N, "got invalid output shape"
+    # assert XB == YB, "batch dimension doesn't match"
+    # assert XK == YK, "shapes of x and y is inconsistent"
+    # if out_shape is not None:
+    #     assert out_shape[0] == XB, "got invalid output shape"
+    #     assert out_shape[1] == M, "got invalid output shape"
+    #     assert out_shape[2] == N, "got invalid output shape"
     cfg.add_flop(XB * M * N * XK * 2)
-    return lib.batch_matmul(x, y, False, True)
+    return lib.batch_matmul(x, y, False, transb)
 
 
 @autotvm.register_topi_compute("batch_matmul_cblas.x86")
@@ -185,9 +185,9 @@ def schedule_batch_matmul_cblas(_, outs):
 
 
 @autotvm.register_topi_compute("batch_matmul_mkl.x86")
-def batch_matmul_mkl(cfg, x, y, out_shape=None):
+def batch_matmul_mkl(cfg, x, y, out_shape=None, transb=True):
     """Compute batch_matmul using mkl"""
-    return batch_matmul_blas_common(cfg, x, y, out_shape, mkl)
+    return batch_matmul_blas_common(cfg, x, y, out_shape, mkl, transb)
 
 
 @autotvm.register_topi_schedule("batch_matmul_mkl.x86")

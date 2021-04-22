@@ -86,7 +86,7 @@ class ParallelBatchMatmulCombiner : public ParallelOpCombiner {
 
     const auto* origin_attrs = branches[0][0]->attrs.as<BatchMatmulAttrs>();
     ICHECK(origin_attrs);
-    return Downcast<Call>(MakeBatchMatmul(data, new_weight, origin_attrs->out_dtype));
+    return Downcast<Call>(MakeBatchMatmul(data, new_weight, origin_attrs->out_dtype, true));
   }
 
   bool IsArgCompatible(const CallNode* a, const CallNode* b, size_t index) { return true; }

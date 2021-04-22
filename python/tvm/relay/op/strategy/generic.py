@@ -764,7 +764,7 @@ def wrap_compute_batch_matmul(topi_compute, need_auto_scheduler_layout=False, ne
             args.append(get_auto_scheduler_rewritten_layout(attrs))
         if need_out_dtype:
             args.append(out_type.dtype)
-        return [topi_compute(*args)]
+        return [topi_compute(inputs[0], inputs[1], out_type.shape, attrs.transb)]
 
     return _compute_batch_matmul
 
@@ -774,11 +774,11 @@ def batch_matmul_strategy(attrs, inputs, out_type, target):
     """batch_matmul generic strategy"""
     logger.warning("batch_matmul is not optimized for this platform.")
     strategy = _op.OpStrategy()
-    strategy.add_implementation(
-        wrap_compute_batch_matmul(topi.nn.batch_matmul),
-        wrap_topi_schedule(topi.generic.schedule_batch_matmul),
-        name="batch_matmul.generic",
-    )
+    # strategy.add_implementation(
+    #     wrap_compute_batch_matmul(topi.nn.batch_matmul),
+    #     wrap_topi_schedule(topi.generic.schedule_batch_matmul),
+    #     name="batch_matmul.generic",
+    # )
     return strategy
 
 

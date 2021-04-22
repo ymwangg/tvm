@@ -430,27 +430,27 @@ def dense_pack_strategy_cpu(attrs, inputs, out_type, target):
 def batch_matmul_strategy_cpu(attrs, inputs, out_type, target):
     """batch_matmul x86 strategy"""
     strategy = _op.OpStrategy()
-    if is_dynamic(out_type) or is_auto_scheduler_enabled():
-        strategy.add_implementation(
-            wrap_compute_batch_matmul(topi.nn.batch_matmul, need_auto_scheduler_layout=True),
-            wrap_topi_schedule(topi.generic.nn.schedule_batch_matmul),
-            name="batch_matmul.generic",
-            plevel=10,
-        )
-    else:
-        strategy.add_implementation(
-            wrap_compute_batch_matmul(topi.x86.batch_matmul),
-            wrap_topi_schedule(topi.x86.schedule_batch_matmul),
-            name="batch_matmul.x86",
-            plevel=10,
-        )
-    if "cblas" in target.libs:
-        strategy.add_implementation(
-            wrap_compute_batch_matmul(topi.x86.batch_matmul_cblas),
-            wrap_topi_schedule(topi.x86.schedule_batch_matmul_cblas),
-            name="batch_matmul_cblas.x86",
-            plevel=15,
-        )
+    # if is_dynamic(out_type) or is_auto_scheduler_enabled():
+    #     strategy.add_implementation(
+    #         wrap_compute_batch_matmul(topi.nn.batch_matmul, need_auto_scheduler_layout=True),
+    #         wrap_topi_schedule(topi.generic.nn.schedule_batch_matmul),
+    #         name="batch_matmul.generic",
+    #         plevel=10,
+    #     )
+    # else:
+    #     strategy.add_implementation(
+    #         wrap_compute_batch_matmul(topi.x86.batch_matmul),
+    #         wrap_topi_schedule(topi.x86.schedule_batch_matmul),
+    #         name="batch_matmul.x86",
+    #         plevel=10,
+    #     )
+    # if "cblas" in target.libs:
+    #     strategy.add_implementation(
+    #         wrap_compute_batch_matmul(topi.x86.batch_matmul_cblas),
+    #         wrap_topi_schedule(topi.x86.schedule_batch_matmul_cblas),
+    #         name="batch_matmul_cblas.x86",
+    #         plevel=15,
+    #     )
     if "mkl" in target.libs:
         strategy.add_implementation(
             wrap_compute_batch_matmul(topi.x86.batch_matmul_mkl),
