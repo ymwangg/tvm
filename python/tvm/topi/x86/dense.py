@@ -324,7 +324,7 @@ def dense_mkl(cfg, data, weight, bias=None, out_dtype=None):
 @autotvm.register_topi_schedule("dense_mkl.x86")
 def schedule_dense_mkl(_, outs):
     """Create schedule for dense_mkl"""
-    # return generic.schedule_extern(outs)
+    return generic.schedule_extern(outs)
     s = te.create_schedule([x.op for x in outs])
     te.schedule.AutoInlineInjective(s)
 

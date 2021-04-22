@@ -580,8 +580,12 @@ class MatMul(OnnxOpConverter):
             if (not isinstance(second_shape[-1], tvm.tir.expr.Any)) and (
                 not isinstance(second_shape[-2], tvm.tir.expr.Any) and (second_shape[-1] == 3072 or second_shape[-2] == 3072)
             ):
+                # b = _op.transpose(b, [0, 2, 1])
+                # Perform a batch matmul.
+                # output = _op.nn.batch_matmul(a, b, transb=True)
                 output = _op.nn.batch_matmul(a, b, transb=False)
             else:
+                # output = _op.nn.batch_matmul(a, b, transb=False)
                 b = _op.transpose(b, [0, 2, 1])
                 # Perform a batch matmul.
                 output = _op.nn.batch_matmul(a, b, transb=True)
