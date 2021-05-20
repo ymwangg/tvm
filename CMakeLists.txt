@@ -460,6 +460,14 @@ if(USE_THREADS AND NOT BUILD_FOR_HEXAGON)
   target_link_libraries(tvm_runtime PUBLIC Threads::Threads)
 endif()
 
+add_subdirectory("3rdparty/mlas")
+target_link_libraries(tvm PRIVATE onnxruntime_mlas)
+target_link_libraries(tvm_runtime PRIVATE onnxruntime_mlas)
+target_include_directories(tvm PUBLIC "3rdparty/mlas/inc")
+target_include_directories(tvm_objs PUBLIC "3rdparty/mlas/inc")
+target_include_directories(tvm_runtime PUBLIC "3rdparty/mlas/inc")
+target_include_directories(tvm_runtime_objs PUBLIC "3rdparty/mlas/inc")
+
 target_link_libraries(tvm PRIVATE ${TVM_LINKER_LIBS} ${TVM_RUNTIME_LINKER_LIBS})
 target_link_libraries(tvm_runtime PRIVATE ${TVM_RUNTIME_LINKER_LIBS})
 
