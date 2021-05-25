@@ -965,7 +965,7 @@ Expr MakeBatchMatmul(Expr x, Expr y, DataType out_dtype, bool packb, int K, int 
   attrs->packb = packb;
   attrs->K = K;
   attrs->N = N;
-  LOG(INFO) << "packb=" << packb << "K=" << K << "N=" << N;
+  LOG(INFO) << "packb=" << packb << " K=" << K << " N=" << N;
   static const Op& op = Op::Get("nn.batch_matmul");
   return Call(op, {x, y}, Attrs(attrs), {});
 }

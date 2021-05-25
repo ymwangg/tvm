@@ -35,7 +35,8 @@ def batch_matmul_mlas(A, B, packb=False, in_k=0, in_n=0):
         (batch, M, N),
         [A, B],
         lambda ins, outs: tvm.tir.call_packed(
-            "tvm.contrib.mlas.sgemm",
+            "tvm.contrib.mlas.batch_sgemm",
+            batch,
             M,
             N,
             K,
