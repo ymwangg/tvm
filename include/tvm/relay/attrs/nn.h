@@ -983,12 +983,20 @@ struct DenseAttrs : public tvm::AttrsNode<DenseAttrs> {
 struct BatchMatmulAttrs : public tvm::AttrsNode<BatchMatmulAttrs> {
   tvm::String auto_scheduler_rewritten_layout;  // The layout after auto-scheduler's layout rewrite
   DataType out_dtype;
+  bool packb;
+  int K;
+  int N;
 
   TVM_DECLARE_ATTRS(BatchMatmulAttrs, "relay.attrs.BatchMatmulAttrs") {
     // use 0 bits to indicate none.
     TVM_ATTR_FIELD(out_dtype)
         .set_default(NullValue<DataType>())
         .describe("Output data type, set to explicit type under mixed precision setting");
+    TVM_ATTR_FIELD(packb)
+        .set_default(false)
+        .describe("packb");
+    TVM_ATTR_FIELD(K).describe("K");
+    TVM_ATTR_FIELD(N).describe("N");
   }
 };
 

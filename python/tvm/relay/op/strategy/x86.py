@@ -430,34 +430,51 @@ def dense_pack_strategy_cpu(attrs, inputs, out_type, target):
 def batch_matmul_strategy_cpu(attrs, inputs, out_type, target):
     """batch_matmul x86 strategy"""
     strategy = _op.OpStrategy()
-    if is_dynamic(out_type) or is_auto_scheduler_enabled():
+    # if is_dynamic(out_type) or is_auto_scheduler_enabled():
+    #     strategy.add_implementation(
+    #         wrap_compute_batch_matmul(topi.nn.batch_matmul, need_auto_scheduler_layout=True),
+    #         wrap_topi_schedule(topi.generic.nn.schedule_batch_matmul),
+    #         name="batch_matmul.generic",
+    #         plevel=10,
+    #     )
+    # else:
+    #     strategy.add_implementation(
+    #         wrap_compute_batch_matmul(topi.x86.batch_matmul),
+    #         wrap_topi_schedule(topi.x86.schedule_batch_matmul),
+    #         name="batch_matmul.x86",
+    #         plevel=10,
+    #     )
+    # if "cblas" in target.libs:
+    #     strategy.add_implementation(
+    #         wrap_compute_batch_matmul(topi.x86.batch_matmul_cblas),
+    #         wrap_topi_schedule(topi.x86.schedule_batch_matmul_cblas),
+    #         name="batch_matmul_cblas.x86",
+    #         plevel=15,
+    #     )
+    # if "mkl" in target.libs:
+    #     strategy.add_implementation(
+    #         wrap_compute_batch_matmul(topi.x86.batch_matmul_mkl),
+    #         wrap_topi_schedule(topi.x86.schedule_batch_matmul_mkl),
+    #         name="batch_matmul_mkl.x86",
+    #         plevel=15,
+    #     )
+    def wrap_compute_batch_matmul_pack(topi_compute):
+        """wrap batch_matmul topi compute"""
+
+        def _compute_batch_matmul(attrs, inputs, out_type):
+            args = [inputs[0], inputs[1], attrs.packb, attrs.K, attrs.N]
+            return [topi_compute(*args)]
+
+        return _compute_batch_matmul
+    if "mlas" in target.libs:
         strategy.add_implementation(
-            wrap_compute_batch_matmul(topi.nn.batch_matmul, need_auto_scheduler_layout=True),
-            wrap_topi_schedule(topi.generic.nn.schedule_batch_matmul),
-            name="batch_matmul.generic",
-            plevel=10,
+            wrap_compute_batch_matmul_pack(topi.x86.batch_matmul_mlas),
+            wrap_topi_schedule(topi.generic.schedule_extern),
+            name="batch_matmul_mlas.x86",
+            plevel=16,
         )
-    else:
-        strategy.add_implementation(
-            wrap_compute_batch_matmul(topi.x86.batch_matmul),
-            wrap_topi_schedule(topi.x86.schedule_batch_matmul),
-            name="batch_matmul.x86",
-            plevel=10,
-        )
-    if "cblas" in target.libs:
-        strategy.add_implementation(
-            wrap_compute_batch_matmul(topi.x86.batch_matmul_cblas),
-            wrap_topi_schedule(topi.x86.schedule_batch_matmul_cblas),
-            name="batch_matmul_cblas.x86",
-            plevel=15,
-        )
-    if "mkl" in target.libs:
-        strategy.add_implementation(
-            wrap_compute_batch_matmul(topi.x86.batch_matmul_mkl),
-            wrap_topi_schedule(topi.x86.schedule_batch_matmul_mkl),
-            name="batch_matmul_mkl.x86",
-            plevel=15,
-        )
+    # import pdb
+    # pdb.set_trace()
     return strategy
 
 

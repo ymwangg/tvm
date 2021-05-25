@@ -1547,3 +1547,24 @@ def unique_strategy(attrs, inputs, out_type, target):
         name="unique.generic",
     )
     return strategy
+
+
+def wrap_mlas_packb(topi_compute):
+    """Wrap mlas_packb topi compute"""
+
+    def _compute_mlas_packb(attrs, inputs, _):
+        return [topi_compute(attrs.K, attrs.N, inputs[0], attrs.size, attrs.transb)]
+
+    return _compute_mlas_packb
+
+
+@override_native_generic_func("mlas_packb_strategy")
+def mlas_packb_strategy(attrs, inputs, out_type, target):
+    """mlas_packb generic strategy"""
+    strategy = _op.OpStrategy()
+    strategy.add_implementation(
+        wrap_mlas_packb(topi.x86.mlas_packb),
+        wrap_topi_schedule(topi.generic.schedule_extern),
+        name="mlas_packb.generic",
+    )
+    return strategy

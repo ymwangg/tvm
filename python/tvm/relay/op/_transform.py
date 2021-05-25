@@ -179,6 +179,12 @@ def compute_unique(attrs, inputs, output_type):
 
 _reg.register_strategy("unique", strategy.unique_strategy)
 
+# @_reg.register_compute("mlas_packb")
+# def compute_mlas_packb(attrs, inputs, output_type):
+#     return topi.x86.mlas_packb(attrs.K, attrs.N, inputs[0], attrs.size, attrs.transb)
+
+_reg.register_strategy("mlas_packb", strategy.mlas_packb_strategy)
+
 #####################
 #  Shape functions  #
 #####################

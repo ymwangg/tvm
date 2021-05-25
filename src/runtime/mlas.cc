@@ -55,23 +55,40 @@ TVM_REGISTER_GLOBAL("tvm.contrib.mlas.gemm_packb").set_body([](TVMArgs args, TVM
   int N = args[0];
   int K = args[1];
   int ldb = args[2];
-  DLTensor* B = args[3];
-  DLTensor* PackedB = args[4];
-  MlasGemmPackB(CblasTrans, N, K, (float*)B->data, ldb, (void*)PackedB->data);
+  bool transb = args[3];
+  DLTensor* B = args[4];
+  DLTensor* PackedB = args[5];
+  std::cout << PackedB->data << std::endl;
+  if (transb) {
+    MlasGemmPackB(CblasTrans, N, K, (float*)B->data, ldb, (void*)PackedB->data);
+  }
+  else{
+    MlasGemmPackB(CblasNoTrans, N, K, (float*)B->data, ldb, (void*)PackedB->data);
+  }
+  
 });
 
 TVM_REGISTER_GLOBAL("tvm.contrib.mlas.sgemm").set_body([](TVMArgs args, TVMRetValue* ret) {
   int M = args[0];
   int N = args[1];
   int K = args[2];
+  bool packb = args[3];
   float alpha = 1.0;
   float beta = 0.0;
-  DLTensor* A = args[3];
-  DLTensor* B = args[4];
-  DLTensor* C = args[5];
-  MlasGemm(CblasNoTrans, CblasTrans, static_cast<size_t>(M), static_cast<size_t>(N),
-           static_cast<size_t>(K), alpha, (float*)A->data, K, (float*)B->data, K, beta,
-           (float*)C->data, N);
+  DLTensor* A = args[4];
+  DLTensor* B = args[5];
+  DLTensor* C = args[6];
+  std::cout << "M=" << M <<"N=" << N << "K=" << K << std::endl;
+  if (packb) {
+    MlasGemm(CblasNoTrans, static_cast<size_t>(M), static_cast<size_t>(N),
+            static_cast<size_t>(K), alpha, (float*)A->data, static_cast<size_t>(K), B->data, beta,
+            (float*)C->data, static_cast<size_t>(N));
+  }
+  else{
+    MlasGemm(CblasNoTrans, CblasTrans, static_cast<size_t>(M), static_cast<size_t>(N),
+            static_cast<size_t>(K), alpha, (float*)A->data, static_cast<size_t>(K), (float*)B->data, static_cast<size_t>(K), beta,
+            (float*)C->data, static_cast<size_t>(N));
+  }
 });
 
 }  // namespace contrib

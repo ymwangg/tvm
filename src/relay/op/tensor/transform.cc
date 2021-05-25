@@ -3984,5 +3984,44 @@ RELAY_REGISTER_OP("unique")
     .add_type_rel("unique", UniqueRel)
     .set_support_level(3)
     .set_attr<TOpPattern>("TOpPattern", kOpaque);
+
+// relay.gemm_packb
+TVM_REGISTER_NODE_TYPE(MlasPackbAttrs);
+
+bool MlasPackbRel(const Array<Type>& types, int num_inputs, const Attrs& attrs,
+                        const TypeReporter& reporter) {
+  const auto* B = types[0].as<TensorTypeNode>();
+  if (B == nullptr) {
+    ICHECK(types[0].as<IncompleteTypeNode>())
+        << "MlasPackbRel: expect input data type to be TensorType but get " << types[0];
+    return false;
+  }
+  const MlasPackbAttrs* params = attrs.as<MlasPackbAttrs>();
+  reporter->Assign(types[1], TensorType({params->size}, B->dtype));
+  return true;
+}
+
+Expr MakeMlasPackb(int K, int N, Expr B, int size, bool transb) {
+  auto attrs = make_object<MlasPackbAttrs>();
+  attrs->K = K;
+  attrs->N = N;
+  attrs->size = size;
+  attrs->transb = transb;
+  static const Op& op = Op::Get("mlas_packb");
+  return Call(op, {B}, Attrs(attrs), {});
+}
+
+TVM_REGISTER_GLOBAL("relay.op._make.mlas_packb").set_body_typed(MakeMlasPackb);
+
+RELAY_REGISTER_OP("mlas_packb")
+    .describe(R"code(Pack the B matrix
+)code" TVM_ADD_FILELINE)
+    .set_attrs_type<MlasPackbAttrs>()
+    .set_num_inputs(1)
+    .add_argument("data", "Tensor", "The input tensor.")
+    .add_type_rel("mlas_packb", MlasPackbRel)
+    .set_support_level(5)
+    .set_attr<TOpPattern>("TOpPattern", kOpaque);
+
 }  // namespace relay
 }  // namespace tvm

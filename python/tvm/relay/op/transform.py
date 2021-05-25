@@ -1690,3 +1690,18 @@ def unique(data, is_sorted=True, return_counts=False):
     if return_counts:
         return TupleWrapper(_make.unique(data, is_sorted, return_counts), 4)
     return TupleWrapper(_make.unique(data, is_sorted, return_counts), 3)
+
+def mlas_packb(K, N, B, transb=True):
+    """Transform the layout of a tensor
+
+    Parameters
+    ----------
+
+    Returns
+    -------
+    """
+    import tvm
+    f = tvm._ffi.get_global_func("tvm.contrib.mlas.gemm_packb_size")
+    packb_size = f(N, K)
+    arr_size = int(packb_size / 4)
+    return _make.mlas_packb(K, N, B, arr_size, transb)

@@ -471,6 +471,21 @@ struct UniqueAttrs : public tvm::AttrsNode<UniqueAttrs> {
   }
 };  // struct UniqueAttrs
 
+/*! \brief Attributes for MlasPackb operator */
+struct MlasPackbAttrs : public tvm::AttrsNode<MlasPackbAttrs> {
+  int K;
+  int N;
+  int size;
+  bool transb;
+
+  TVM_DECLARE_ATTRS(MlasPackbAttrs, "relay.attrs.MlasPackbAttrs") {
+    TVM_ATTR_FIELD(K).describe("K");
+    TVM_ATTR_FIELD(N).describe("N");
+    TVM_ATTR_FIELD(size).describe("size");
+    TVM_ATTR_FIELD(transb).describe("transb").set_default(true);
+  }
+};
+
 }  // namespace relay
 }  // namespace tvm
 #endif  // TVM_RELAY_ATTRS_TRANSFORM_H_
