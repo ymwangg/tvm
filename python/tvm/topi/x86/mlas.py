@@ -1,3 +1,4 @@
+from numpy import MAY_SHARE_BOUNDS
 from tvm import te
 import tvm
 from tvm.topi.utils import get_const_float, get_const_tuple
@@ -20,17 +21,19 @@ def mlas_packb(K, N, B, transb_size, transb=True):
         name="PackedB",
     )
 
-def batch_matmul_mlas(X, Y, transb=True, packb=False, K=-1, N=-1):
-    XB, M, K = get_const_tuple(X.shape)
-    if packb:
-        YB = XB
-    else:
-        YB, N, K = get_const_tuple(Y.shape)
+def batch_matmul_mlas(A, B, packb=False, in_k=0, in_n=0):
 
-    assert XB == YB
+    batch_A, M_A, K_A = get_const_tuple(A.shape)
+    if packb:
+        batch_B, N_B, K_B = batch_A, in_n, in_k
+    else:
+        batch_B, N_B, K_B = get_const_tuple(B.shape)
+    assert batch_A == batch_B
+    assert K_A == K_B
+    batch, M, N, K = batch_A, M_A, N_B, K_A
     return te.extern(
-        (XB, M, N),
-        [X, Y],
+        (batch, M, N),
+        [A, B],
         lambda ins, outs: tvm.tir.call_packed(
             "tvm.contrib.mlas.sgemm",
             M,

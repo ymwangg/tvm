@@ -452,12 +452,12 @@ def batch_matmul_strategy_cpu(attrs, inputs, out_type, target):
     #         plevel=15,
     #     )
     # if "mkl" in target.libs:
-    #     strategy.add_implementation(
-    #         wrap_compute_batch_matmul(topi.x86.batch_matmul_mkl),
-    #         wrap_topi_schedule(topi.x86.schedule_batch_matmul_mkl),
-    #         name="batch_matmul_mkl.x86",
-    #         plevel=15,
-    #     )
+    # strategy.add_implementation(
+    #     wrap_compute_batch_matmul(topi.x86.batch_matmul_mkl),
+    #     wrap_topi_schedule(topi.x86.schedule_batch_matmul_mkl),
+    #     name="batch_matmul_mkl.x86",
+    #     plevel=15,
+    # )
     def wrap_compute_batch_matmul_pack(topi_compute):
         """wrap batch_matmul topi compute"""
 
@@ -471,7 +471,7 @@ def batch_matmul_strategy_cpu(attrs, inputs, out_type, target):
             wrap_compute_batch_matmul_pack(topi.x86.batch_matmul_mlas),
             wrap_topi_schedule(topi.generic.schedule_extern),
             name="batch_matmul_mlas.x86",
-            plevel=16,
+            plevel=15,
         )
     # import pdb
     # pdb.set_trace()
