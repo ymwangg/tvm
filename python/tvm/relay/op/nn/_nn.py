@@ -189,9 +189,24 @@ reg.register_strategy("nn.conv2d", strategy.conv2d_strategy)
 reg.register_pattern("nn.conv2d", OpPattern.OUT_ELEMWISE_FUSABLE)
 
 
-# batch_matmul
+# mlas_matmul
 reg.register_strategy("nn.mlas_matmul", strategy.mlas_matmul_strategy)
 reg.register_pattern("nn.mlas_matmul", reg.OpPattern.OUT_ELEMWISE_FUSABLE)
+
+@reg.register_alter_op_layout("nn.batch_matmul")
+def alter_op_layout_dense(attrs, inputs, tinfos, out_type):
+    """Alternate the layout of batch_matmul"""
+    from tvm import relay
+    if isinstance(inputs[1], relay.expr.Constant):
+        b_shape = inputs[1].data.shape
+        assert len(b_shape) == 3
+        batch, N, K = b_shape[0], b_shape[1], b_shape[2]
+        assert batch == 1
+        print("rewriting batch-matmul b_shape=", b_shape)
+        newb = relay.mlas_packb(inputs[1], K, N)
+        output = relay.nn.mlas_matmul(inputs[0], newb, True, K, N)
+        return output
+    return None
 
 
 @reg.register_alter_op_layout("nn.conv2d")
