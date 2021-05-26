@@ -1606,3 +1606,23 @@ def mlas_matmul_strategy(attrs, inputs, out_type, target):
     """mlas_matmul generic strategy"""
     strategy = _op.OpStrategy()
     return strategy
+
+def wrap_mlas_packb(topi_compute):
+    """Wrap mlas_packb topi compute"""
+
+    def _compute_mlas_packb(attrs, inputs, _):
+        return [topi_compute(inputs[0], attrs.K, attrs.N, attrs.size, attrs.transb)]
+
+    return _compute_mlas_packb
+
+
+@override_native_generic_func("mlas_packb_strategy")
+def mlas_packb_strategy(attrs, inputs, out_type, target):
+    """mlas_packb generic strategy"""
+    strategy = _op.OpStrategy()
+    strategy.add_implementation(
+        wrap_mlas_packb(topi.x86.mlas_packb),
+        wrap_topi_schedule(topi.generic.schedule_extern),
+        name="mlas_packb.x86",
+    )
+    return strategy

@@ -1479,17 +1479,17 @@ bool MlasMatmulRel(const Array<Type>& types, int num_inputs, const Attrs& attrs,
     reporter->AssertEQ(x->shape[1], param->K);
     oshape.push_back(param->N);
   }
-  if (!is_dyn) {
-    ICHECK(reporter->AssertEQ(x->shape[0], y->shape[0]) || reporter->AssertEQ(x->shape[0], 1) ||
-           reporter->AssertEQ(y->shape[0], 1))
-        << "BatchDot: batch dimensions don't match, "
-        << " x shape=" << x->shape << ", y shape=" << y->shape;
-    ICHECK(reporter->AssertEQ(x->shape[2], y->shape[2]))
-        << "BatchDot: shapes of x and y is inconsistent, "
-        << " x shape=" << x->shape << ", y shape=" << y->shape;
+  // if (!is_dyn) {
+  //   ICHECK(reporter->AssertEQ(x->shape[0], y->shape[0]) || reporter->AssertEQ(x->shape[0], 1) ||
+  //          reporter->AssertEQ(y->shape[0], 1))
+  //       << "BatchDot: batch dimensions don't match, "
+  //       << " x shape=" << x->shape << ", y shape=" << y->shape;
+  //   ICHECK(reporter->AssertEQ(x->shape[2], y->shape[2]))
+  //       << "BatchDot: shapes of x and y is inconsistent, "
+  //       << " x shape=" << x->shape << ", y shape=" << y->shape;
 
-    oshape.Set(2, y->shape[1]);
-  }
+  //   oshape.Set(2, y->shape[1]);
+  // }
 
   // assign output type
   reporter->Assign(types[2], TensorType(oshape, x->dtype));

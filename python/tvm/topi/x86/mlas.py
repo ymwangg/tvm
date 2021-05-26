@@ -4,7 +4,7 @@ import tvm
 from tvm.topi.utils import get_const_float, get_const_tuple
 
 
-def mlas_packb(K, N, B, transb_size, transb=True):
+def mlas_packb(B, K, N, transb_size, transb=True):
     print(transb_size)
     return te.extern(
         (transb_size),
