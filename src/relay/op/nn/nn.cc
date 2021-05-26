@@ -1434,5 +1434,96 @@ Example::
     .set_attr<FTVMCompute>("FTVMCompute", BatchToSpaceNDCompute)
     .set_attr<TOpPattern>("TOpPattern", kInjective);
 
+
+// relay.nn.mlas_matmul
+TVM_REGISTER_NODE_TYPE(MlasMatmulAttrs);
+
+bool MlasMatmulRel(const Array<Type>& types, int num_inputs, const Attrs& attrs,
+                    const TypeReporter& reporter) {
+  ICHECK_EQ(types.size(), 3);
+  const auto* x = types[0].as<TensorTypeNode>();
+  const auto* y = types[1].as<TensorTypeNode>();
+  if (x == nullptr || y == nullptr) return false;
+  const auto* param = attrs.as<MlasMatmulAttrs>();
+
+  bool is_dyn = false;
+  Array<tvm::PrimExpr> oshape;
+  if (!param->packb) {
+    for (size_t i = 0; i < 3; ++i) {
+      if (x->shape[i].as<tir::AnyNode>() != nullptr || y->shape[i].as<tir::AnyNode>() != nullptr) {
+        is_dyn = true;
+        oshape.push_back(Any());
+      } else {
+        if (i == 0) {
+          oshape.push_back(max(x->shape[i], y->shape[i]));
+        } else {
+          oshape.push_back(x->shape[i]);
+        }
+      }
+    }
+    if (!is_dyn) {
+      ICHECK(reporter->AssertEQ(x->shape[0], y->shape[0]) || reporter->AssertEQ(x->shape[0], 1) ||
+            reporter->AssertEQ(y->shape[0], 1))
+          << "BatchDot: batch dimensions don't match, "
+          << " x shape=" << x->shape << ", y shape=" << y->shape;
+      ICHECK(reporter->AssertEQ(x->shape[2], y->shape[2]))
+          << "BatchDot: shapes of x and y is inconsistent, "
+          << " x shape=" << x->shape << ", y shape=" << y->shape;
+
+      oshape.Set(2, y->shape[1]);
+    }
+  }
+  else{
+    oshape.push_back(x->shape[0]);
+    oshape.push_back(x->shape[1]);
+    reporter->AssertEQ(x->shape[1], param->K);
+    oshape.push_back(param->N);
+  }
+  if (!is_dyn) {
+    ICHECK(reporter->AssertEQ(x->shape[0], y->shape[0]) || reporter->AssertEQ(x->shape[0], 1) ||
+           reporter->AssertEQ(y->shape[0], 1))
+        << "BatchDot: batch dimensions don't match, "
+        << " x shape=" << x->shape << ", y shape=" << y->shape;
+    ICHECK(reporter->AssertEQ(x->shape[2], y->shape[2]))
+        << "BatchDot: shapes of x and y is inconsistent, "
+        << " x shape=" << x->shape << ", y shape=" << y->shape;
+
+    oshape.Set(2, y->shape[1]);
+  }
+
+  // assign output type
+  reporter->Assign(types[2], TensorType(oshape, x->dtype));
+  return true;
+}
+
+Expr MakeMlasMatmul(Expr x, Expr y, bool packb, int K, int N) {
+  auto attrs = make_object<MlasMatmulAttrs>();
+  attrs->packb = packb;
+  attrs->K = K;
+  attrs->N = N;
+  LOG(INFO) << "packb=" << packb << " K=" << K << " N=" << N;
+  static const Op& op = Op::Get("nn.mlas_matmul");
+  return Call(op, {x, y}, Attrs(attrs), {});
+}
+
+TVM_REGISTER_GLOBAL("relay.op.nn._make.mlas_matmul").set_body_typed(MakeMlasMatmul);
+
+RELAY_REGISTER_OP("nn.mlas_matmul")
+    .describe(R"code(Computes matrix multiplication using mlas library
+
+.. math::
+
+  batch\_matmul(x, y)[i, :, :] = matmul(x[i, :, :], y[i, :, :]^T)
+
+- **x**: `(b, m, k)`
+- **y**: `(b, n, k)`
+- **out**: `(b, m, n)`.
+
+)code" TVM_ADD_FILELINE)
+    .set_num_inputs(2)
+    .add_argument("x", "3D Tensor", "First input.")
+    .add_argument("y", "3D Tensor", "Second input.")
+    .set_support_level(10)
+    .add_type_rel("MlasMatmul", MlasMatmulRel);
 }  // namespace relay
 }  // namespace tvm

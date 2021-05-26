@@ -567,3 +567,25 @@ def conv2d_winograd_without_weight_transfrom_strategy_cpu(attrs, inputs, out_typ
             "Unsupported conv2d_winograd_without_weight_transfrom layout {}".format(layout)
         )
     return strategy
+
+
+@mlas_matmul_strategy.register("cpu")
+def mlas_matmul_strategy_cpu(attrs, inputs, out_type, target):
+    """mlas_matmul x86 strategy"""
+    strategy = _op.OpStrategy()
+
+    def wrap_compute_mlas_matmul(topi_compute):
+        """wrap mlas_matmul topi compute"""
+
+        def _compute_mlas_matmul(attrs, inputs, out_type):
+            args = [inputs[0], inputs[1], attrs.packb, attrs.K, attrs.N]
+            return [topi_compute(*args)]
+
+        return _compute_mlas_matmul
+    strategy.add_implementation(
+        wrap_compute_mlas_matmul(topi.x86.mlas_matmul),
+        wrap_topi_schedule(topi.generic.schedule_extern),
+        name="mlas_matmul.x86",
+        plevel=15,
+    )
+    return strategy

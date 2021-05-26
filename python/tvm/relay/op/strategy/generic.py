@@ -1599,3 +1599,10 @@ def schedule_transpose(attrs, outs, target):
     """schedule transpose"""
     with target:
         return schedule_injective(attrs, outs, target)
+
+
+@override_native_generic_func("mlas_matmul_strategy")
+def mlas_matmul_strategy(attrs, inputs, out_type, target):
+    """mlas_matmul generic strategy"""
+    strategy = _op.OpStrategy()
+    return strategy

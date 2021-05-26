@@ -189,6 +189,11 @@ reg.register_strategy("nn.conv2d", strategy.conv2d_strategy)
 reg.register_pattern("nn.conv2d", OpPattern.OUT_ELEMWISE_FUSABLE)
 
 
+# batch_matmul
+reg.register_strategy("nn.mlas_matmul", strategy.mlas_matmul_strategy)
+reg.register_pattern("nn.mlas_matmul", reg.OpPattern.OUT_ELEMWISE_FUSABLE)
+
+
 @reg.register_alter_op_layout("nn.conv2d")
 def alter_op_layout_conv2d(attrs, inputs, tinfos, out_type):
     """Alternate the layout of conv2d"""

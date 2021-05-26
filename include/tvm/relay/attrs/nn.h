@@ -1426,6 +1426,19 @@ struct BatchToSpaceNDAttrs : public tvm::AttrsNode<BatchToSpaceNDAttrs> {
   }
 };  // struct BatchToSpaceNDAttrs
 
+/*! \brief Attributes for mlas matmul operator */
+struct MlasMatmulAttrs : public tvm::AttrsNode<MlasMatmulAttrs> {
+  bool packb;
+  int K;
+  int N;
+
+  TVM_DECLARE_ATTRS(MlasMatmulAttrs, "relay.attrs.MlasMatmulAttrs") {
+    TVM_ATTR_FIELD(packb).set_default(false).describe("Whether the weight matrix is pre-packed");
+    TVM_ATTR_FIELD(K).set_default(-1).describe("K");
+    TVM_ATTR_FIELD(N).set_default(-1).describe("N");
+  }
+};
+
 }  // namespace relay
 }  // namespace tvm
 #endif  // TVM_RELAY_ATTRS_NN_H_

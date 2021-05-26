@@ -3565,3 +3565,30 @@ def batch_to_space_nd(data, block_shape, crops):
     """
 
     return _make.batch_to_space_nd(data, block_shape, crops)
+
+def mlas_matmul(x, y, packb=False, K=-1, N=-1):
+    r"""
+    Computes batch matrix multiplication of `x` and `y` when `x` and `y` are data
+    in batch.
+
+    .. math::
+
+        \mbox{batch_matmul}(x, y)[i, :, :] = \mbox{matmul}(x[i, :, :], y[i, :, :]^T)
+
+    Parameters
+    ----------
+    x : tvm.relay.Expr
+        The first input.
+
+    y : tvm.relay.Expr
+        The second input.
+
+    out_dtype : str, optional
+        Specifies the output data type for mixed precision batch matmul
+
+    Returns
+    -------
+    result: tvm.relay.Expr
+        The computed result.
+    """
+    return _make.mlas_matmul(x, y, packb, K, N)
