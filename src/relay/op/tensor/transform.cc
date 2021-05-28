@@ -4011,7 +4011,7 @@ RELAY_REGISTER_OP("unique")
 TVM_REGISTER_NODE_TYPE(MlasPackbAttrs);
 
 bool MlasPackbRel(const Array<Type>& types, int num_inputs, const Attrs& attrs,
-                        const TypeReporter& reporter) {
+                  const TypeReporter& reporter) {
   const auto* B = types[0].as<TensorTypeNode>();
   if (B == nullptr) {
     ICHECK(types[0].as<IncompleteTypeNode>())

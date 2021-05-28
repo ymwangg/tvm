@@ -1434,12 +1434,11 @@ Example::
     .set_attr<FTVMCompute>("FTVMCompute", BatchToSpaceNDCompute)
     .set_attr<TOpPattern>("TOpPattern", kInjective);
 
-
 // relay.nn.mlas_matmul
 TVM_REGISTER_NODE_TYPE(MlasMatmulAttrs);
 
 bool MlasMatmulRel(const Array<Type>& types, int num_inputs, const Attrs& attrs,
-                    const TypeReporter& reporter) {
+                   const TypeReporter& reporter) {
   ICHECK_EQ(types.size(), 3);
   const auto* x = types[0].as<TensorTypeNode>();
   const auto* y = types[1].as<TensorTypeNode>();
@@ -1449,35 +1448,61 @@ bool MlasMatmulRel(const Array<Type>& types, int num_inputs, const Attrs& attrs,
   bool is_dyn = false;
   Array<tvm::PrimExpr> oshape;
   if (!param->packb) {
-    for (size_t i = 0; i < 3; ++i) {
-      if (x->shape[i].as<tir::AnyNode>() != nullptr || y->shape[i].as<tir::AnyNode>() != nullptr) {
-        is_dyn = true;
-        oshape.push_back(Any());
-      } else {
-        if (i == 0) {
-          oshape.push_back(max(x->shape[i], y->shape[i]));
+    ICHECK_EQ(x->shape.size(), y->shape.size());
+  }
+
+  if (!param->packb) {
+    if (x->shape.size() == 3) {
+      for (size_t i = 0; i < 3; ++i) {
+        if (x->shape[i].as<tir::AnyNode>() != nullptr ||
+            y->shape[i].as<tir::AnyNode>() != nullptr) {
+          is_dyn = true;
+          oshape.push_back(Any());
+        } else {
+          if (i == 0) {
+            oshape.push_back(max(x->shape[i], y->shape[i]));
+          } else {
+            oshape.push_back(x->shape[i]);
+          }
+        }
+      }
+      if (!is_dyn) {
+        ICHECK(reporter->AssertEQ(x->shape[0], y->shape[0]) || reporter->AssertEQ(x->shape[0], 1) ||
+               reporter->AssertEQ(y->shape[0], 1))
+            << "BatchDot: batch dimensions don't match, "
+            << " x shape=" << x->shape << ", y shape=" << y->shape;
+        ICHECK(reporter->AssertEQ(x->shape[2], y->shape[2]))
+            << "BatchDot: shapes of x and y is inconsistent, "
+            << " x shape=" << x->shape << ", y shape=" << y->shape;
+
+        oshape.Set(2, y->shape[1]);
+      }
+    } else {
+      for (size_t i = 0; i < 2; ++i) {
+        if (x->shape[i].as<tir::AnyNode>() != nullptr ||
+            y->shape[i].as<tir::AnyNode>() != nullptr) {
+          is_dyn = true;
+          oshape.push_back(Any());
         } else {
           oshape.push_back(x->shape[i]);
         }
       }
+      if (!is_dyn) {
+        oshape.Set(1, y->shape[0]);
+      }
     }
-    if (!is_dyn) {
-      ICHECK(reporter->AssertEQ(x->shape[0], y->shape[0]) || reporter->AssertEQ(x->shape[0], 1) ||
-            reporter->AssertEQ(y->shape[0], 1))
-          << "BatchDot: batch dimensions don't match, "
-          << " x shape=" << x->shape << ", y shape=" << y->shape;
-      ICHECK(reporter->AssertEQ(x->shape[2], y->shape[2]))
-          << "BatchDot: shapes of x and y is inconsistent, "
-          << " x shape=" << x->shape << ", y shape=" << y->shape;
 
-      oshape.Set(2, y->shape[1]);
+  } else {
+    if (x->shape.size() == 3) {
+      oshape.push_back(x->shape[0]);
+      oshape.push_back(x->shape[1]);
+      reporter->AssertEQ(x->shape[2], param->K);
+      oshape.push_back(param->N);
+    } else {
+      oshape.push_back(x->shape[0]);
+      oshape.push_back(param->N);
+      reporter->AssertEQ(x->shape[1], param->K);
     }
-  }
-  else{
-    oshape.push_back(x->shape[0]);
-    oshape.push_back(x->shape[1]);
-    reporter->AssertEQ(x->shape[1], param->K);
-    oshape.push_back(param->N);
   }
   // if (!is_dyn) {
   //   ICHECK(reporter->AssertEQ(x->shape[0], y->shape[0]) || reporter->AssertEQ(x->shape[0], 1) ||

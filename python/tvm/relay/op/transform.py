@@ -1708,6 +1708,7 @@ def mlas_packb(B, K, N, transb=True):
     -------
     """
     import tvm
+
     f = tvm._ffi.get_global_func("tvm.contrib.mlas.gemm_packb_size")
     packb_size = f(N, K)
     arr_size = int(packb_size / 4)

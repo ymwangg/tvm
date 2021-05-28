@@ -26,43 +26,58 @@ from ..utils import get_const_tuple
 from ..nn import dense_alter_layout
 
 
-@dense_alter_layout.register(["cpu", "arm_cpu"])
+# @dense_alter_layout.register(["cpu", "arm_cpu"])
+# def _alter_dense_layout(attrs, inputs, tinfos, out_type):
+#     target = tvm.target.Target.current(allow_none=False)
+#     dispatch_ctx = autotvm.task.DispatchContext.current
+#     data_tensor, weight_tensor = tinfos
+#     out_dtype = out_type.dtype
+#     M, K = get_const_tuple(data_tensor.shape)
+#     N, _ = get_const_tuple(weight_tensor.shape)
+
+#     impl, outs = relay.backend.compile_engine.select_implementation(
+#         relay.op.get("nn.dense"), attrs, tinfos, out_type, target
+#     )
+#     workload = autotvm.task.get_workload(outs)
+#     if workload:
+#         cfg = dispatch_ctx.query(target, workload)
+#         topi_impl = workload[0]
+#         if topi_impl == "dense_pack.x86":
+#             if cfg.is_fallback:
+#                 _default_dense_pack_config(cfg, M, N, K)
+#             packw_bn = cfg["tile_x"].size[-1]
+#             weight_layout = "NK%dn" % packw_bn
+#             new_weight = te.placeholder(
+#                 (N // packw_bn, K, packw_bn),
+#                 dtype=weight_tensor.dtype,
+#             )
+#             # Relay dense doesn't have bias.
+#             new_workload = autotvm.task.args_to_workload(
+#                 [
+#                     data_tensor,
+#                     new_weight,
+#                     None,
+#                     out_dtype,
+#                 ],
+#                 topi_impl,
+#             )
+#             dispatch_ctx.update(target, new_workload, cfg)
+#             weight_transform = relay.layout_transform(inputs[1], "NK", weight_layout)
+#             return relay.nn.contrib_dense_pack(inputs[0], weight_transform, None, out_dtype)
+
+#     return None
+
+
+@dense_alter_layout.register(["cpu"])
 def _alter_dense_layout(attrs, inputs, tinfos, out_type):
-    target = tvm.target.Target.current(allow_none=False)
-    dispatch_ctx = autotvm.task.DispatchContext.current
-    data_tensor, weight_tensor = tinfos
-    out_dtype = out_type.dtype
-    M, K = get_const_tuple(data_tensor.shape)
-    N, _ = get_const_tuple(weight_tensor.shape)
+    from tvm import relay
 
-    impl, outs = relay.backend.compile_engine.select_implementation(
-        relay.op.get("nn.dense"), attrs, tinfos, out_type, target
-    )
-    workload = autotvm.task.get_workload(outs)
-    if workload:
-        cfg = dispatch_ctx.query(target, workload)
-        topi_impl = workload[0]
-        if topi_impl == "dense_pack.x86":
-            if cfg.is_fallback:
-                _default_dense_pack_config(cfg, M, N, K)
-            packw_bn = cfg["tile_x"].size[-1]
-            weight_layout = "NK%dn" % packw_bn
-            new_weight = te.placeholder(
-                (N // packw_bn, K, packw_bn),
-                dtype=weight_tensor.dtype,
-            )
-            # Relay dense doesn't have bias.
-            new_workload = autotvm.task.args_to_workload(
-                [
-                    data_tensor,
-                    new_weight,
-                    None,
-                    out_dtype,
-                ],
-                topi_impl,
-            )
-            dispatch_ctx.update(target, new_workload, cfg)
-            weight_transform = relay.layout_transform(inputs[1], "NK", weight_layout)
-            return relay.nn.contrib_dense_pack(inputs[0], weight_transform, None, out_dtype)
-
+    if isinstance(inputs[1], relay.expr.Constant):
+        b_shape = inputs[1].data.shape
+        assert len(b_shape) == 2
+        N, K = b_shape[0], b_shape[1]
+        print("rewriting dense b_shape=", b_shape)
+        newb = relay.mlas_packb(inputs[1], K, N)
+        output = relay.nn.mlas_matmul(inputs[0], newb, True, K, N)
+        return output
     return None

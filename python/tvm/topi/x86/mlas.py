@@ -21,29 +21,54 @@ def mlas_packb(B, K, N, transb_size, transb=True):
         name="PackedB",
     )
 
-def mlas_matmul(A, B, packb=False, in_k=0, in_n=0):
 
-    batch_A, M_A, K_A = get_const_tuple(A.shape)
-    if packb:
-        batch_B, N_B, K_B = batch_A, in_n, in_k
+def mlas_matmul(A, B, packb=False, in_k=0, in_n=0):
+    if len(A.shape) == 3:
+        batch_A, M_A, K_A = get_const_tuple(A.shape)
+        if packb:
+            batch_B, N_B, K_B = batch_A, in_n, in_k
+        else:
+            batch_B, N_B, K_B = get_const_tuple(B.shape)
+        assert batch_A == batch_B
+        assert K_A == K_B
+        batch, M, N, K = batch_A, M_A, N_B, K_A
+        return te.extern(
+            (batch, M, N),
+            [A, B],
+            lambda ins, outs: tvm.tir.call_packed(
+                "tvm.contrib.mlas.batch_sgemm",
+                batch,
+                M,
+                N,
+                K,
+                packb,
+                ins[0],
+                ins[1],
+                outs[0],
+            ),
+            name="C",
+        )
     else:
-        batch_B, N_B, K_B = get_const_tuple(B.shape)
-    assert batch_A == batch_B
-    assert K_A == K_B
-    batch, M, N, K = batch_A, M_A, N_B, K_A
-    return te.extern(
-        (batch, M, N),
-        [A, B],
-        lambda ins, outs: tvm.tir.call_packed(
-            "tvm.contrib.mlas.batch_sgemm",
-            batch,
-            M,
-            N,
-            K,
-            packb,
-            ins[0],
-            ins[1],
-            outs[0],
-        ),
-        name="C",
-    )
+        M_A, K_A = get_const_tuple(A.shape)
+        if packb:
+            N_B, K_B = in_n, in_k
+        else:
+            N_B, K_B = get_const_tuple(B.shape)
+        assert K_A == K_B
+        M, N, K = M_A, N_B, K_A
+        return te.extern(
+            (M, N),
+            [A, B],
+            lambda ins, outs: tvm.tir.call_packed(
+                "tvm.contrib.mlas.batch_sgemm",
+                1,
+                M,
+                N,
+                K,
+                packb,
+                ins[0],
+                ins[1],
+                outs[0],
+            ),
+            name="C",
+        )
