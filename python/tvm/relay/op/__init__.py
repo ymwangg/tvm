@@ -53,6 +53,9 @@ from . import _transform
 from . import _reduce
 from . import _algorithm
 
+# mlas
+from .mlas import *
+from . import _mlas
 
 def _register_op_make():
     # pylint: disable=import-outside-toplevel
