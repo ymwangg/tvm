@@ -25,11 +25,6 @@
 #define TVM_RELAY_ATTRS_MLAS_OP_H_
 
 #include <tvm/ir/attrs.h>
-#include <tvm/relay/base.h>
-
-#include <string>
-
-#include "tvm/runtime/container.h"
 
 namespace tvm {
 namespace relay {
@@ -41,8 +36,7 @@ struct MlasMatmulAttrs : public tvm::AttrsNode<MlasMatmulAttrs> {
   int N;
 
   TVM_DECLARE_ATTRS(MlasMatmulAttrs, "relay.attrs.MlasMatmulAttrs") {
-    TVM_ATTR_FIELD(packb).set_default(false).describe(
-        "Flag to indicate whether the weight matrix is pre-packed");
+    TVM_ATTR_FIELD(packb).set_default(false).describe("packb");
     TVM_ATTR_FIELD(K).set_default(-1).describe("K");
     TVM_ATTR_FIELD(N).set_default(-1).describe("N");
   }
@@ -65,4 +59,4 @@ struct MlasPackbAttrs : public tvm::AttrsNode<MlasPackbAttrs> {
 
 }  // namespace relay
 }  // namespace tvm
-#endif  // TVM_RELAY_ATTRS_NN_H_
+#endif  // TVM_RELAY_ATTRS_MLAS_OP_H_

@@ -22,15 +22,9 @@
  * \brief Implementation of operators from MLAS library
  */
 
-
 #include <tvm/relay/attrs/mlas_op.h>
-#include <string>
-#include <vector>
 
-#include "../../transforms/infer_layout_utils.h"
-#include "../make_op.h"
 #include "../op_common.h"
-#include "../type_relations.h"
 
 namespace tvm {
 namespace relay {
@@ -41,84 +35,110 @@ TVM_REGISTER_NODE_TYPE(MlasMatmulAttrs);
 bool MlasMatmulRel(const Array<Type>& types, int num_inputs, const Attrs& attrs,
                    const TypeReporter& reporter) {
   ICHECK_EQ(types.size(), 3);
-  const auto* x = types[0].as<TensorTypeNode>();
-  const auto* y = types[1].as<TensorTypeNode>();
-  if (x == nullptr || y == nullptr) return false;
+  const auto* A = types[0].as<TensorTypeNode>();
+  const auto* B = types[1].as<TensorTypeNode>();
+  if (A == nullptr || B == nullptr) return false;
   const auto* param = attrs.as<MlasMatmulAttrs>();
 
-  bool is_dyn = false;
   Array<tvm::PrimExpr> oshape;
+  // If B matrix is pre-packed then it is 1-D
   if (!param->packb) {
-    ICHECK_EQ(x->shape.size(), y->shape.size());
+    ICHECK_EQ(A->shape.size(), B->shape.size());
   }
+  bool is_dyn = false;
+  if (!param->packb) {           // When B is not pre-packed
+    if (A->shape.size() == 3) {  // The case of batch_matmul A[:,:,:] x B[:,:,:]^T
+      // batch
+      if (A->shape[0].as<tir::AnyNode>() != nullptr || B->shape[0].as<tir::AnyNode>() != nullptr) {
+        is_dyn = true;
+        oshape.push_back(Any());
+      } else {
+        oshape.push_back(max(A->shape[0], B->shape[0]));
+      }
+      // M
+      if (A->shape[1].as<tir::AnyNode>() != nullptr) {
+        is_dyn = true;
+        oshape.push_back(Any());
+      } else {
+        oshape.push_back(A->shape[1]);
+      }
+      // N
+      if (B->shape[1].as<tir::AnyNode>() != nullptr) {
+        is_dyn = true;
+        oshape.push_back(Any());
+      } else {
+        oshape.push_back(B->shape[1]);
+      }
 
-  if (!param->packb) {
-    if (x->shape.size() == 3) {
-      for (size_t i = 0; i < 3; ++i) {
-        if (x->shape[i].as<tir::AnyNode>() != nullptr ||
-            y->shape[i].as<tir::AnyNode>() != nullptr) {
-          is_dyn = true;
-          oshape.push_back(Any());
-        } else {
-          if (i == 0) {
-            oshape.push_back(max(x->shape[i], y->shape[i]));
-          } else {
-            oshape.push_back(x->shape[i]);
-          }
-        }
+      if (!is_dyn) {
+        ICHECK(reporter->AssertEQ(A->shape[0], B->shape[0]) || reporter->AssertEQ(A->shape[0], 1) ||
+               reporter->AssertEQ(B->shape[0], 1))
+            << "MlasMatmulRel: batch dimensions don't match, "
+            << " A shape=" << A->shape << ", B shape=" << B->shape;
+        ICHECK(reporter->AssertEQ(A->shape[2], B->shape[2]))
+            << "MlasMatmulRel: shapes of A and B are inconsistent, "
+            << " A shape=" << A->shape << ", B shape=" << B->shape;
+      }
+    } else {  // The case of dense A[:,:] x B[:,:]^T
+      // M
+      if (A->shape[0].as<tir::AnyNode>() != nullptr) {
+        is_dyn = true;
+        oshape.push_back(Any());
+      } else {
+        oshape.push_back(A->shape[0]);
+      }
+      // N
+      if (B->shape[0].as<tir::AnyNode>() != nullptr) {
+        is_dyn = true;
+        oshape.push_back(Any());
+      } else {
+        oshape.push_back(B->shape[0]);
       }
       if (!is_dyn) {
-        ICHECK(reporter->AssertEQ(x->shape[0], y->shape[0]) || reporter->AssertEQ(x->shape[0], 1) ||
-               reporter->AssertEQ(y->shape[0], 1))
-            << "BatchDot: batch dimensions don't match, "
-            << " x shape=" << x->shape << ", y shape=" << y->shape;
-        ICHECK(reporter->AssertEQ(x->shape[2], y->shape[2]))
-            << "BatchDot: shapes of x and y is inconsistent, "
-            << " x shape=" << x->shape << ", y shape=" << y->shape;
-
-        oshape.Set(2, y->shape[1]);
-      }
-    } else {
-      for (size_t i = 0; i < 2; ++i) {
-        if (x->shape[i].as<tir::AnyNode>() != nullptr ||
-            y->shape[i].as<tir::AnyNode>() != nullptr) {
-          is_dyn = true;
-          oshape.push_back(Any());
-        } else {
-          oshape.push_back(x->shape[i]);
-        }
-      }
-      if (!is_dyn) {
-        oshape.Set(1, y->shape[0]);
+        ICHECK(reporter->AssertEQ(A->shape[1], B->shape[1]))
+            << "MlasMatmulRel: shapes of A and B are inconsistent, "
+            << " A shape=" << A->shape << ", B shape=" << B->shape;
       }
     }
-
-  } else {
-    if (x->shape.size() == 3) {
-      oshape.push_back(x->shape[0]);
-      oshape.push_back(x->shape[1]);
-      reporter->AssertEQ(x->shape[2], param->K);
+  } else {                       // When B is pre-packed, B is 1-D and the batch_size of B must be 1
+    if (A->shape.size() == 3) {  // The case of batch_matmul A[:,:,:] x B[:,:,:]^T
+      // batch
+      if (A->shape[0].as<tir::AnyNode>() != nullptr) {
+        is_dyn = true;
+        oshape.push_back(Any());
+      } else {
+        oshape.push_back(A->shape[0]);
+      }
+      // M
+      if (A->shape[1].as<tir::AnyNode>() != nullptr) {
+        is_dyn = true;
+        oshape.push_back(Any());
+      } else {
+        oshape.push_back(A->shape[1]);
+      }
+      // N
       oshape.push_back(param->N);
-    } else {
-      oshape.push_back(x->shape[0]);
+      ICHECK(reporter->AssertEQ(A->shape[2], param->K))
+          << "MlasMatmulRel: shapes of A and B are inconsistent, "
+          << " A shape=" << A->shape << ", B shape="
+          << "[1," << param->N << "," << param->K << "]";
+    } else {  // The case of dense A[:,:] x B[:,:]^T
+      // M
+      if (A->shape[0].as<tir::AnyNode>() != nullptr) {
+        is_dyn = true;
+        oshape.push_back(Any());
+      } else {
+        oshape.push_back(A->shape[0]);
+      }
+      // N
       oshape.push_back(param->N);
-      reporter->AssertEQ(x->shape[1], param->K);
+      ICHECK(reporter->AssertEQ(A->shape[1], param->K))
+          << "MlasMatmulRel: shapes of A and B are inconsistent, "
+          << " A shape=" << A->shape << ", B shape="
+          << "[" << param->N << "," << param->K << "]";
     }
   }
-  // if (!is_dyn) {
-  //   ICHECK(reporter->AssertEQ(x->shape[0], y->shape[0]) || reporter->AssertEQ(x->shape[0], 1) ||
-  //          reporter->AssertEQ(y->shape[0], 1))
-  //       << "BatchDot: batch dimensions don't match, "
-  //       << " x shape=" << x->shape << ", y shape=" << y->shape;
-  //   ICHECK(reporter->AssertEQ(x->shape[2], y->shape[2]))
-  //       << "BatchDot: shapes of x and y is inconsistent, "
-  //       << " x shape=" << x->shape << ", y shape=" << y->shape;
-
-  //   oshape.Set(2, y->shape[1]);
-  // }
-
-  // assign output type
-  reporter->Assign(types[2], TensorType(oshape, x->dtype));
+  reporter->Assign(types[2], TensorType(oshape, A->dtype));
   return true;
 }
 
@@ -127,7 +147,6 @@ Expr MakeMlasMatmul(Expr x, Expr y, bool packb, int K, int N) {
   attrs->packb = packb;
   attrs->K = K;
   attrs->N = N;
-  LOG(INFO) << "packb=" << packb << " K=" << K << " N=" << N;
   static const Op& op = Op::Get("mlas_matmul");
   return Call(op, {x, y}, Attrs(attrs), {});
 }
@@ -139,25 +158,26 @@ RELAY_REGISTER_OP("mlas_matmul")
 
 .. math::
 
-  batch\_matmul(x, y)[i, :, :] = matmul(x[i, :, :], y[i, :, :]^T)
+  batch\_matmul(A, B)[i, :, :] = matmul(A[i, :, :], B[i, :, :]^T)
+  or batch\_matmul(A, B)[:, :] = matmul(A[:, :], B[:, :]^T)
 
-- **x**: `(b, m, k)`
-- **y**: `(b, n, k)`
-- **out**: `(b, m, n)`.
+- **A**: `(b, m, k)` or `(m, k)`
+- **B**: `(b, n, k)` or `(n, k)`
+- **out**: `(b, m, n)` or `(m, n)`.
 
 )code" TVM_ADD_FILELINE)
     .set_num_inputs(2)
-    .add_argument("x", "3D Tensor", "First input.")
-    .add_argument("y", "3D Tensor", "Second input.")
+    .add_argument("A", "3D/2D Tensor", "First input.")
+    .add_argument("B", "3D/2D Tensor", "Second input.")
     .set_support_level(10)
     .add_type_rel("MlasMatmul", MlasMatmulRel);
-
 
 // relay.mlas_packb
 TVM_REGISTER_NODE_TYPE(MlasPackbAttrs);
 
 bool MlasPackbRel(const Array<Type>& types, int num_inputs, const Attrs& attrs,
                   const TypeReporter& reporter) {
+  ICHECK_EQ(types.size(), 2);
   const auto* B = types[0].as<TensorTypeNode>();
   if (B == nullptr) {
     ICHECK(types[0].as<IncompleteTypeNode>())
@@ -182,13 +202,13 @@ Expr MakeMlasPackb(Expr B, int K, int N, int size, bool transb) {
 TVM_REGISTER_GLOBAL("relay.op._make.mlas_packb").set_body_typed(MakeMlasPackb);
 
 RELAY_REGISTER_OP("mlas_packb")
-    .describe(R"code(Pack the B matrix
+    .describe(R"code(Pre-pack the B matrix
 )code" TVM_ADD_FILELINE)
     .set_attrs_type<MlasPackbAttrs>()
     .set_num_inputs(1)
-    .add_argument("data", "Tensor", "The input tensor.")
+    .add_argument("B", "Tensor", "The second matrix of matmul.")
     .add_type_rel("mlas_packb", MlasPackbRel)
-    .set_support_level(5)
+    .set_support_level(10)
     .set_attr<TOpPattern>("TOpPattern", kOpaque);
 
 }  // namespace relay

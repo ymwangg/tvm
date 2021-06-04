@@ -1,46 +1,67 @@
 from . import _make
+from tvm import _ffi
 
 
-def mlas_matmul(x, y, packb=False, K=-1, N=-1):
+def mlas_matmul(A, B, packb=False, K=-1, N=-1):
     r"""
-    Computes batch matrix multiplication of `x` and `y` when `x` and `y` are data
+    Computes batch matrix multiplication of `A` and `B` when `A` and `B` are data
     in batch.
 
     .. math::
 
-        \mbox{batch_matmul}(x, y)[i, :, :] = \mbox{matmul}(x[i, :, :], y[i, :, :]^T)
+        C[i, :, :] = \mbox{matmul}(A[i, :, :], B[i, :, :]^T)
 
     Parameters
     ----------
-    x : tvm.relay.Expr
+    A : tvm.relay.Expr
         The first input.
 
-    y : tvm.relay.Expr
+    B : tvm.relay.Expr
         The second input.
 
-    out_dtype : str, optional
-        Specifies the output data type for mixed precision batch matmul
+    packb : bool
+        Specify whether the B is pre-packed
+
+    K : int
+        The number of colums of A
+
+    N : int
+        The number of colums of output C
 
     Returns
     -------
     result: tvm.relay.Expr
         The computed result.
     """
-    return _make.mlas_matmul(x, y, packb, K, N)
+    return _make.mlas_matmul(A, B, packb, K, N)
 
 
 def mlas_packb(B, K, N, transb=True):
-    """Transform the layout of a tensor
+    """Pre-pack B matrix if it is constant for mlas_matmul, C = A * B^T
 
     Parameters
     ----------
+    B : tvm.relay.Expr
+        The second input of mlas_matmul
 
+    packb : bool
+        Specify whether the B is pre-packed
+
+    K : int
+        The number of colums of A
+
+    N : int
+        The number of colums of output C
+
+    transb : bool
+        Whether the B matrix is transposed
     Returns
     -------
+    result: tvm.relay.Expr
+        The pre-packed B matrix
     """
-    import tvm
-
-    get_packb_size = tvm._ffi.get_global_func("tvm.contrib.mlas.gemm_packb_size")
+    get_packb_size = _ffi.get_global_func("tvm.contrib.mlas.gemm_packb_size")
     packb_size = get_packb_size(N, K)
+    # only support float32
     arr_size = int(packb_size / 4)
     return _make.mlas_packb(B, K, N, arr_size, transb)
