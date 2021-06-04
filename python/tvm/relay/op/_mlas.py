@@ -53,19 +53,21 @@ def _alter_batch_matmul_layout(attrs, inputs, tinfos, out_type):
     target = Target.current(allow_none=False)
     if (
         "mlas" in target.libs
-        and isinstance(inputs[1], relay.expr.Constant)
         and tinfos[0].dtype == "float32"
         and tinfos[1].dtype == "float32"
         and out_type.dtype == "float32"
     ):
-        b_shape = inputs[1].data.shape
-        assert len(b_shape) == 3
-        batch, N, K = b_shape[0], b_shape[1], b_shape[2]
-        assert batch == 1
-        newb = relay.op.mlas_packb(inputs[1], K, N)
-        output = relay.op.mlas_matmul(inputs[0], newb, True, K, N)
-        logging.info("Applying mlas batch_matmul pack optimization for B.shape=", b_shape)
-        return output
+        if isinstance(inputs[1], relay.expr.Constant):
+            b_shape = inputs[1].data.shape
+            assert len(b_shape) == 3
+            batch, N, K = b_shape[0], b_shape[1], b_shape[2]
+            assert batch == 1
+            newb = relay.op.mlas_packb(inputs[1], K, N)
+            output = relay.op.mlas_matmul(inputs[0], newb, True, K, N)
+            logging.info("Applying mlas batch_matmul pack optimization for B.shape=", b_shape)
+            return output
+        if not any([item in target.libs for item in ["mkl", "clbas", "mkldnn"]]):
+            return relay.op.mlas_matmul(inputs[0], inputs[1], False)
     return None
 
 
@@ -107,57 +109,59 @@ def _alter_dense_layout(attrs, inputs, tinfos, out_type):
     target = Target.current(allow_none=False)
     if (
         "mlas" in target.libs
-        and isinstance(inputs[1], relay.expr.Constant)
         and tinfos[0].dtype == "float32"
         and tinfos[1].dtype == "float32"
         and out_type.dtype == "float32"
     ):
-        b_shape = inputs[1].data.shape
-        assert len(b_shape) == 2
-        N, K = b_shape[0], b_shape[1]
-        newb = relay.op.mlas_packb(inputs[1], K, N)
-        output = relay.op.mlas_matmul(inputs[0], newb, True, K, N)
-        logging.info("Applying mlas dense pack optimization for B.shape=", b_shape)
-        return output
-    else:
-        # default AlterOpLayout function copied from tvm.topi.x86.dense_alter_op
-        from tvm import autotvm, te
-        from tvm.topi.utils import get_const_tuple
-        from tvm.topi.x86.dense import _default_dense_pack_config
+        if isinstance(inputs[1], relay.expr.Constant):
+            b_shape = inputs[1].data.shape
+            assert len(b_shape) == 2
+            N, K = b_shape[0], b_shape[1]
+            newb = relay.op.mlas_packb(inputs[1], K, N)
+            output = relay.op.mlas_matmul(inputs[0], newb, True, K, N)
+            logging.info("Applying mlas dense pack optimization for B.shape=", b_shape)
+            return output
+        if not any([item in target.libs for item in ["mkl", "clbas", "mkldnn"]]):
+            return relay.op.mlas_matmul(inputs[0], inputs[1], False)
+        
+    # default AlterOpLayout function copied from tvm.topi.x86.dense_alter_op
+    from tvm import autotvm, te
+    from tvm.topi.utils import get_const_tuple
+    from tvm.topi.x86.dense import _default_dense_pack_config
 
-        dispatch_ctx = autotvm.task.DispatchContext.current
-        data_tensor, weight_tensor = tinfos
-        out_dtype = out_type.dtype
-        M, K = get_const_tuple(data_tensor.shape)
-        N, _ = get_const_tuple(weight_tensor.shape)
+    dispatch_ctx = autotvm.task.DispatchContext.current
+    data_tensor, weight_tensor = tinfos
+    out_dtype = out_type.dtype
+    M, K = get_const_tuple(data_tensor.shape)
+    N, _ = get_const_tuple(weight_tensor.shape)
 
-        impl, outs = relay.backend.compile_engine.select_implementation(
-            relay.op.get("nn.dense"), attrs, tinfos, out_type, target
-        )
-        workload = autotvm.task.get_workload(outs)
-        if workload:
-            cfg = dispatch_ctx.query(target, workload)
-            topi_impl = workload[0]
-            if topi_impl == "dense_pack.x86":
-                if cfg.is_fallback:
-                    _default_dense_pack_config(cfg, M, N, K)
-                packw_bn = cfg["tile_x"].size[-1]
-                weight_layout = "NK%dn" % packw_bn
-                new_weight = te.placeholder(
-                    (N // packw_bn, K, packw_bn),
-                    dtype=weight_tensor.dtype,
-                )
-                # Relay dense doesn't have bias.
-                new_workload = autotvm.task.args_to_workload(
-                    [
-                        data_tensor,
-                        new_weight,
-                        None,
-                        out_dtype,
-                    ],
-                    topi_impl,
-                )
-                dispatch_ctx.update(target, new_workload, cfg)
-                weight_transform = relay.layout_transform(inputs[1], "NK", weight_layout)
-                return relay.nn.contrib_dense_pack(inputs[0], weight_transform, None, out_dtype)
+    impl, outs = relay.backend.compile_engine.select_implementation(
+        relay.op.get("nn.dense"), attrs, tinfos, out_type, target
+    )
+    workload = autotvm.task.get_workload(outs)
+    if workload:
+        cfg = dispatch_ctx.query(target, workload)
+        topi_impl = workload[0]
+        if topi_impl == "dense_pack.x86":
+            if cfg.is_fallback:
+                _default_dense_pack_config(cfg, M, N, K)
+            packw_bn = cfg["tile_x"].size[-1]
+            weight_layout = "NK%dn" % packw_bn
+            new_weight = te.placeholder(
+                (N // packw_bn, K, packw_bn),
+                dtype=weight_tensor.dtype,
+            )
+            # Relay dense doesn't have bias.
+            new_workload = autotvm.task.args_to_workload(
+                [
+                    data_tensor,
+                    new_weight,
+                    None,
+                    out_dtype,
+                ],
+                topi_impl,
+            )
+            dispatch_ctx.update(target, new_workload, cfg)
+            weight_transform = relay.layout_transform(inputs[1], "NK", weight_layout)
+            return relay.nn.contrib_dense_pack(inputs[0], weight_transform, None, out_dtype)
     return None
