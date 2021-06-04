@@ -5,7 +5,6 @@ from tvm.topi.utils import get_const_float, get_const_tuple
 
 
 def mlas_packb(B, K, N, transb_size, transb=True):
-    print(transb_size)
     return te.extern(
         (transb_size),
         [B],
@@ -24,6 +23,9 @@ def mlas_packb(B, K, N, transb_size, transb=True):
 
 def mlas_matmul(A, B, packb=False, in_k=0, in_n=0):
     if len(A.shape) == 3:
+        """
+        batch_matmul
+        """
         batch_A, M_A, K_A = get_const_tuple(A.shape)
         if packb:
             # when B is packed, the batch_size must be 1
@@ -51,6 +53,9 @@ def mlas_matmul(A, B, packb=False, in_k=0, in_n=0):
             name="C",
         )
     else:
+        """
+        dense
+        """
         M_A, K_A = get_const_tuple(A.shape)
         if packb:
             N_B, K_B = in_n, in_k
