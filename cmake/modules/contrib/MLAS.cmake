@@ -15,6 +15,9 @@
 # specific language governing permissions and limitations
 # under the License.
 
-add_subdirectory("3rdparty/mlas")
-list(APPEND TVM_RUNTIME_LINKER_LIBS onnxruntime_mlas)
-include_directories(SYSTEM "3rdparty/mlas/inc")
+if (USE_MLAS)
+    add_subdirectory("3rdparty/mlas")
+    list(APPEND RUNTIME_SRCS src/runtime/contrib/cblas/mlas_op.cc)
+    list(APPEND TVM_RUNTIME_LINKER_LIBS onnxruntime_mlas)
+    include_directories(SYSTEM "3rdparty/mlas/inc")
+endif()

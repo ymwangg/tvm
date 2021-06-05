@@ -78,11 +78,11 @@ def _alter_batch_matmul_layout(attrs, inputs, tinfos, out_type):
             b_shape = inputs[1].data.shape
             assert len(b_shape) == 3
             batch, N, K = b_shape[0], b_shape[1], b_shape[2]
-            assert batch == 1
-            newb = relay.op.mlas_packb(inputs[1], K, N)
-            output = relay.op.mlas_matmul(inputs[0], newb, True, K, N)
-            logging.info("Applying mlas batch_matmul pack optimization for B.shape=", b_shape)
-            return output
+            if batch == 1:
+                newb = relay.op.mlas_packb(inputs[1], K, N)
+                output = relay.op.mlas_matmul(inputs[0], newb, True, K, N)
+                logging.info("Applying mlas batch_matmul pack optimization for B.shape=", b_shape)
+                return output
         if not any([item in target.libs for item in ["mkl", "clbas", "mkldnn"]]):
             return relay.op.mlas_matmul(inputs[0], inputs[1], False)
     return None
