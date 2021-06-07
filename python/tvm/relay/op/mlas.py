@@ -14,13 +14,14 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
+# pylint: disable=invalid-name
 """MLAS relay operators"""
-from . import _make
 from tvm import _ffi
+from . import _make
 
 
 def mlas_matmul(A, B, packb=False, K=-1, N=-1):
-    """Computes batch matrix multiplication of `A` and `B` when `A` and `B` are data
+    r"""Computes batch matrix multiplication of `A` and `B` when `A` and `B` are data
     in batch.
 
     .. math::
@@ -53,7 +54,7 @@ def mlas_matmul(A, B, packb=False, K=-1, N=-1):
 
 
 def mlas_packb(B, K, N, transb=True):
-    """Pre-pack B matrix if it is constant for mlas_matmul, C = A * B^T.
+    r"""Pre-pack B matrix if it is constant for mlas_matmul, C = A * B^T.
 
     Parameters
     ----------

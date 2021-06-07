@@ -53,9 +53,11 @@ TVM_REGISTER_GLOBAL("tvm.contrib.mlas.gemm_packb").set_body([](TVMArgs args, TVM
   DLTensor* B = args[4];
   DLTensor* PackedB = args[5];
   if (transb) {
-    MlasGemmPackB(CblasTrans, N, K, (float*)B->data, ldb, (void*)PackedB->data);
+    MlasGemmPackB(CblasTrans, N, K, static_cast<float*>(B->data), ldb,
+                  static_cast<void*>(PackedB->data));
   } else {
-    MlasGemmPackB(CblasNoTrans, N, K, (float*)B->data, ldb, (void*)PackedB->data);
+    MlasGemmPackB(CblasNoTrans, N, K, static_cast<float*>(B->data), ldb,
+                  static_cast<void*>(PackedB->data));
   }
 });
 

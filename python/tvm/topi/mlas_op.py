@@ -14,6 +14,7 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
+# pylint: disable=invalid-name,no-else-return
 """MLAS operators"""
 import tvm
 from tvm import te
@@ -88,9 +89,7 @@ def mlas_matmul(A, B, packb=False, K=0, N=0):
         The computed result.
     """
     if len(A.shape) == 3:
-        """
-        batch_matmul mode
-        """
+    # batch_matmul mode
         batch_A, M_A, K_A = get_const_tuple(A.shape)
         if packb:
             # when B is packed, the batch_size must be 1
@@ -98,7 +97,7 @@ def mlas_matmul(A, B, packb=False, K=0, N=0):
         else:
             batch_B, N_B, K_B = get_const_tuple(B.shape)
         assert K_A == K_B
-        assert (batch_A == batch_B) or (batch_B == 1)
+        assert batch_B in (batch_A, 1)
         M, N, K = M_A, N_B, K_A
         return te.extern(
             (batch_A, M, N),
@@ -118,9 +117,7 @@ def mlas_matmul(A, B, packb=False, K=0, N=0):
             name="C",
         )
     else:
-        """
-        dense mode
-        """
+    # dense mode
         M_A, K_A = get_const_tuple(A.shape)
         if packb:
             N_B, K_B = N, K
