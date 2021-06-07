@@ -89,7 +89,7 @@ def mlas_matmul(A, B, packb=False, K=0, N=0):
         The computed result.
     """
     if len(A.shape) == 3:
-    # batch_matmul mode
+        # batch_matmul mode
         batch_A, M_A, K_A = get_const_tuple(A.shape)
         if packb:
             # when B is packed, the batch_size must be 1
@@ -117,7 +117,7 @@ def mlas_matmul(A, B, packb=False, K=0, N=0):
             name="C",
         )
     else:
-    # dense mode
+        # dense mode
         M_A, K_A = get_const_tuple(A.shape)
         if packb:
             N_B, K_B = N, K
