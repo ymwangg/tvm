@@ -15,13 +15,36 @@
 # specific language governing permissions and limitations
 # under the License.
 """MLAS operators"""
-from numpy import MAY_SHARE_BOUNDS
-from tvm import te
 import tvm
-from tvm.topi.utils import get_const_float, get_const_tuple
+from tvm import te
+from tvm.topi.utils import get_const_tuple
 
 
 def mlas_packb(B, K, N, transb_size, transb=True):
+    """Pre-pack B matrix if it is constant for mlas_matmul, C = A * B^T.
+    It only supports float32 datatype.
+
+    Parameters
+    ----------
+    B : tvm.te.Tensor
+        The second input of mlas_matmul.
+
+    K : int
+        The number of colums of A.
+
+    N : int
+        The number of colums of output C.
+
+    transb_size : int
+        The size (in bytes) of the output pre-packed B matrix.
+
+    transb : bool
+        Whether the B matrix is transposed.
+    Returns
+    -------
+    PackedB: tvm.te.Tensor
+        The pre-packed B matrix.
+    """
     return te.extern(
         (transb_size),
         [B],
@@ -38,15 +61,40 @@ def mlas_packb(B, K, N, transb_size, transb=True):
     )
 
 
-def mlas_matmul(A, B, packb=False, in_k=0, in_n=0):
+def mlas_matmul(A, B, packb=False, K=0, N=0):
+    """Computes matrix multiplication of `A` and `B`, C = A * B^T.
+    It supports both batch_matmul and dense mode.
+
+    Parameters
+    ----------
+    A : tvm.te.Tensor
+        The first input.
+
+    B : tvm.te.Tensor
+        The second input.
+
+    packb : bool
+        Specify whether the B is pre-packed.
+
+    K : int
+        The number of colums of A.
+
+    N : int
+        The number of colums of output C.
+
+    Returns
+    -------
+    C: tvm.te.Tensor
+        The computed result.
+    """
     if len(A.shape) == 3:
         """
-        batch_matmul
+        batch_matmul mode
         """
         batch_A, M_A, K_A = get_const_tuple(A.shape)
         if packb:
             # when B is packed, the batch_size must be 1
-            batch_B, N_B, K_B = 1, in_n, in_k
+            batch_B, N_B, K_B = 1, N, K
         else:
             batch_B, N_B, K_B = get_const_tuple(B.shape)
         assert K_A == K_B
@@ -71,11 +119,11 @@ def mlas_matmul(A, B, packb=False, in_k=0, in_n=0):
         )
     else:
         """
-        dense
+        dense mode
         """
         M_A, K_A = get_const_tuple(A.shape)
         if packb:
-            N_B, K_B = in_n, in_k
+            N_B, K_B = N, K
         else:
             N_B, K_B = get_const_tuple(B.shape)
         assert K_A == K_B

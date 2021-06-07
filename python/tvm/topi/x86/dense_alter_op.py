@@ -41,8 +41,8 @@ def _alter_dense_layout(attrs, inputs, tinfos, out_type):
             b_shape = inputs[1].data.shape
             assert len(b_shape) == 2
             N, K = b_shape[0], b_shape[1]
-            newb = relay.op.mlas_packb(inputs[1], K, N)
-            output = relay.op.mlas_matmul(inputs[0], newb, True, K, N)
+            packed_b = relay.op.mlas_packb(inputs[1], K, N)
+            output = relay.op.mlas_matmul(inputs[0], packed_b, True, K, N)
             return output
         # if matrix A, B are not constant and no other libs are enabled, use normal matmul
         if not any([item in target.libs for item in ["mkl", "clbas", "mkldnn"]]):

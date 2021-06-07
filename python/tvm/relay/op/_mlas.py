@@ -20,6 +20,7 @@ from tvm import relay, topi
 from .strategy import wrap_topi_schedule
 from . import op as reg
 
+
 # Mlas_matmul
 # Mlas_matmul strategy
 @tvm.target.override_native_generic_func("mlas_matmul_strategy")
@@ -77,9 +78,10 @@ def _alter_batch_matmul_layout(attrs, inputs, tinfos, out_type):
             b_shape = inputs[1].data.shape
             assert len(b_shape) == 3
             batch, N, K = b_shape[0], b_shape[1], b_shape[2]
+            # batch_B must be 1
             if batch == 1:
-                newb = relay.op.mlas_packb(inputs[1], K, N)
-                output = relay.op.mlas_matmul(inputs[0], newb, True, K, N)
+                packed_b = relay.op.mlas_packb(inputs[1], K, N)
+                output = relay.op.mlas_matmul(inputs[0], packed_b, True, K, N)
                 return output
         # if matrix A, B are not constant and no other libs are enabled, use normal matmul
         if not any([item in target.libs for item in ["mkl", "clbas", "mkldnn"]]):
