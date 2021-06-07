@@ -290,4 +290,4 @@ set(USE_BNNS OFF)
 set(USE_LIBBACKTRACE AUTO)
 
 # Whether to enable MLAS library that provides sgemm pre-packing optimization
-set(USE_MLAS ON)
+set(USE_MLAS OFF)

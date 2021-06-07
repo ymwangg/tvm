@@ -17,7 +17,8 @@
 import numpy as np
 import tvm
 import tvm.testing
-from tvm import _ffi, te, topi, relay
+from tvm import te, topi, relay
+from tvm._ffi.registry import get_global_func
 from tvm.relay.testing.temp_op_attr import TempOpAttr
 
 
@@ -58,7 +59,7 @@ def _verify_topi_mlas_matmul(batch_A, batch_B, m, k, n, dtype="float32"):
 
 def _verify_topi_mlas_matmul_packed(batch_A, batch_B, m, k, n, dtype="float32"):
     assert batch_B == 1
-    get_packb_size = _ffi.get_global_func("tvm.contrib.mlas.gemm_packb_size")
+    get_packb_size = get_global_func("tvm.contrib.mlas.gemm_packb_size")
     packb_size = get_packb_size(n, k)
     arr_size = int(packb_size / 4)
     # batch_matmul
@@ -172,6 +173,9 @@ def _verify_relay_mlas_matmul_packed(batch_A, batch_B, m, k, n, dtype="float32")
 
 
 def test_topi_mlas_matmul():
+    if not get_global_func("tvm.contrib.mlas.batch_sgemm", allow_missing=True):
+        print("skip because mlas is not enabled...")
+        return
     for _ in range(10):
         m, k, n = np.random.randint(1, 100), np.random.randint(1, 100), np.random.randint(1, 100)
         _verify_topi_mlas_matmul(1, 1, m, k, n)
@@ -180,6 +184,9 @@ def test_topi_mlas_matmul():
 
 
 def test_topi_mlas_matmul_packed():
+    if not get_global_func("tvm.contrib.mlas.batch_sgemm", allow_missing=True):
+        print("skip because mlas is not enabled...")
+        return
     for _ in range(10):
         m, k, n = np.random.randint(1, 100), np.random.randint(1, 100), np.random.randint(1, 100)
         _verify_topi_mlas_matmul_packed(1, 1, m, k, n)
@@ -187,6 +194,9 @@ def test_topi_mlas_matmul_packed():
 
 
 def test_relay_mlas_matmul():
+    if not get_global_func("tvm.contrib.mlas.batch_sgemm", allow_missing=True):
+        print("skip because mlas is not enabled...")
+        return
     m, k, n = np.random.randint(1, 100), np.random.randint(1, 100), np.random.randint(1, 100)
     _verify_relay_mlas_matmul(1, 1, m, k, n)
     _verify_relay_mlas_matmul(10, 1, m, k, n)
@@ -194,6 +204,9 @@ def test_relay_mlas_matmul():
 
 
 def test_relay_mlas_matmul_packed():
+    if not get_global_func("tvm.contrib.mlas.batch_sgemm", allow_missing=True):
+        print("skip because mlas is not enabled...")
+        return
     m, k, n = np.random.randint(1, 100), np.random.randint(1, 100), np.random.randint(1, 100)
     _verify_relay_mlas_matmul_packed(1, 1, m, k, n)
     _verify_relay_mlas_matmul_packed(10, 1, m, k, n)
@@ -210,6 +223,9 @@ def _run_opt_pass(expr, passes):
 
 
 def test_alter_op_layout_dnese():
+    if not get_global_func("tvm.contrib.mlas.batch_sgemm", allow_missing=True):
+        print("skip because mlas is not enabled...")
+        return
     target = "llvm -libs=mlas"
     m, k, n = 32, 48, 64
     B_const = np.random.uniform(size=[n, k]).astype("float32")
@@ -263,6 +279,9 @@ def test_alter_op_layout_dnese():
 
 
 def test_alter_op_layout_batch_matmul():
+    if not get_global_func("tvm.contrib.mlas.batch_sgemm", allow_missing=True):
+        print("skip because mlas is not enabled...")
+        return
     target = "llvm -libs=mlas"
     m, k, n = 32, 48, 64
     B_const = np.random.uniform(size=[1, n, k]).astype("float32")

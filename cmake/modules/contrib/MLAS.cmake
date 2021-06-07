@@ -16,6 +16,10 @@
 # under the License.
 
 if (USE_MLAS)
+    message(STATUS "Build with MLAS library " ${BLAS_LIBRARY_MKL})
+    if (NOT (USE_OPENMP STREQUAL "gnu" OR USE_OPENMP STREQUAL "intel"))
+        message(FATAL_ERROR "MLAS library must be built with USE_OPENMP=gnu or USE_OPENMP=intel")
+    endif()
     add_subdirectory("3rdparty/mlas")
     list(APPEND RUNTIME_SRCS src/runtime/contrib/cblas/mlas_op.cc)
     list(APPEND TVM_RUNTIME_LINKER_LIBS onnxruntime_mlas)
