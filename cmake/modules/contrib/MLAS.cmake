@@ -16,7 +16,7 @@
 # under the License.
 
 if (USE_MLAS)
-    message(STATUS "Build with MLAS library " ${BLAS_LIBRARY_MKL})
+    message(STATUS "Build with MLAS library")
     if (NOT (USE_OPENMP STREQUAL "gnu" OR USE_OPENMP STREQUAL "intel"))
         message(FATAL_ERROR "MLAS library must be built with USE_OPENMP=gnu or USE_OPENMP=intel")
     endif()
