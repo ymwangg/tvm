@@ -18,10 +18,9 @@
  */
 
 /*!
- * \file Use external mkl library call.
+ * \file Use external mlas library call.
  */
 #include <mlas.h>
-#include <stdio.h>
 #include <tvm/runtime/data_type.h>
 #include <tvm/runtime/logging.h>
 #include <tvm/runtime/registry.h>
