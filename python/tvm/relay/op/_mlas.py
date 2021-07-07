@@ -18,6 +18,7 @@
 """Strategy and AlterOpLayout functions of MLAS operators"""
 import tvm
 from tvm import relay, topi
+from tvm.te.hybrid import script
 from .strategy import wrap_topi_schedule
 from . import op as reg
 
@@ -123,3 +124,38 @@ reg.register_strategy("mlas_packb", mlas_packb_strategy)
 
 # Dense AlterOpLayout
 # See tvm.topi.x86.dense_alter_op
+
+
+@script
+def _mlas_matmul_shape_func(tensor_a_shape, tensor_b_shape):
+    out = output_tensor((tensor_a_shape.shape[0],), "int64")
+    if tensor_a_shape.shape[0] == 3:
+        out[0] = tensor_a_shape[0]
+        out[1] = tensor_a_shape[1]
+        out[2] = tensor_b_shape[1]
+    else:
+        out[0] = tensor_a_shape[0]
+        out[1] = tensor_b_shape[0]
+    return out
+
+
+@script
+def _mlas_matmul_packb_shape_func(tensor_a_shape, N):
+    out = output_tensor((tensor_a_shape.shape[0],), "int64")
+    if tensor_a_shape.shape[0] == 3:
+        out[0] = tensor_a_shape[0]
+        out[1] = tensor_a_shape[1]
+        out[2] = N
+    else:
+        out[0] = tensor_a_shape[0]
+        out[1] = N
+    return out
+
+
+@reg.register_shape_func("mlas_matmul", False)
+def matmul_shape_func(attrs, inputs, _):
+    """Shape function for matmul op."""
+    if attrs.packb:
+        return [_mlas_matmul_packb_shape_func(inputs[0], tvm.tir.expr.IntImm("int64", attrs.N))]
+    else:
+        return [_mlas_matmul_shape_func(inputs[0], inputs[1])]
