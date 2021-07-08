@@ -157,5 +157,4 @@ def matmul_shape_func(attrs, inputs, _):
     """Shape function for matmul op."""
     if attrs.packb:
         return [_mlas_matmul_packb_shape_func(inputs[0], tvm.tir.expr.IntImm("int64", attrs.N))]
-    else:
-        return [_mlas_matmul_shape_func(inputs[0], inputs[1])]
+    return [_mlas_matmul_shape_func(inputs[0], inputs[1])]
