@@ -75,6 +75,11 @@ def _alter_batch_matmul_layout(attrs, inputs, tinfos, out_type):
         and tinfos[1].dtype == "float32"
         and out_type.dtype == "float32"
     ):
+        # mlas is only used for static tensors
+        if any([isinstance(dim, tvm.tir.Any) for dim in tinfos[0].shape]) or any(
+            [isinstance(dim, tvm.tir.Any) for dim in tinfos[1].shape]
+        ):
+            return None
         # if matrix B is constant, use packed matmul
         if isinstance(inputs[1], relay.expr.Constant):
             b_shape = inputs[1].data.shape
