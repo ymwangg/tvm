@@ -277,18 +277,27 @@ def test_alter_op_layout_dnese():
             b = _run_opt_pass(nopack_expected(), relay.transform.InferType())
             assert tvm.ir.structural_equal(a, b)
 
-    def dynamic_expected():
+    def dynamic_before():
         A = relay.var("A", shape=(relay.Any(), k), dtype="float32")
-        B = relay.var("B", shape=(relay.Any(), k), dtype="float32")
+        B = relay.var("B", shape=(n, k), dtype="float32")
         C = relay.nn.dense(A, B)
         f = relay.Function(relay.analysis.free_vars(C), C)
         return f
+
+    def dynamic_expected():
+        A = relay.var("A", shape=(relay.Any(), k), dtype="float32")
+        B = relay.var("B", shape=(n, k), dtype="float32")
+        target_layout = "NK16n"
+        weight_transform = relay.layout_transform(B, "NK", target_layout)
+        y = relay.nn.contrib_dense_pack(A, weight_transform, units=None, out_dtype="float32")
+        y = relay.Function(relay.analysis.free_vars(y), y)
+        return y
 
     with tvm.target.Target(target):
         with TempOpAttr(
             "nn.dense", "FTVMAlterOpLayout", topi.x86.dense_alter_op._alter_dense_layout
         ):
-            a = dynamic_expected()
+            a = dynamic_before()
             a = _run_opt_pass(a, relay.transform.AlterOpLayout())
             b = _run_opt_pass(dynamic_expected(), relay.transform.InferType())
             assert tvm.ir.structural_equal(a, b)
